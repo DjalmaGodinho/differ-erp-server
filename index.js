@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
+import swaggerJsdoc from 'swagger-jsdoc';
 import { authenticate, authorize, optionalAuth } from './lib/middleware/auth.js';
 import {
   authController,
@@ -17,16 +19,114 @@ import {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Swagger config
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Differ ERP API',
+      version: '1.0.0',
+      description: 'API Node.js do Differ ERP',
+    },
+    servers: [
+      { url: '/api', description: 'API base' }
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
+  },
+  apis: ['./index.js', './lib/controllers/*.js'],
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+
+// Swagger UI - configuração para Vercel (serverless)
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  explorer: true,
+  customCss: '.swagger-ui .topbar { display: none }',
+  swaggerOptions: {
+    url: '/api/swagger.json',
+    persistAuthorization: true
+  }
+}));
+
+// Endpoint para swagger.json
+app.get('/api/swagger.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
 app.use(cors());
 app.use(express.json());
 
 const ok = (data, message) => ({ success: true, data, message });
 
-// Health check
+/**
+ * @openapi
+ * /api/health:
+ *   get:
+ *     summary: Health check
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: API está rodando
+ */
 app.get('/api/health', authController.health);
 
-// Auth routes (públicas)
+/**
+ * @openapi
+ * /api/auth/login:
+ *   post:
+ *     summary: Login de usuário
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login bem-sucedido
+ *       401:
+ *         description: Credenciais inválidas
+ */
 app.post('/api/auth/login', authController.login);
+
+/**
+ * @openapi
+ * /api/auth/setup-admin:
+ *   post:
+ *     summary: Configurar usuário admin (primeiro acesso)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Admin criado
+ */
 app.post('/api/auth/setup-admin', authController.setupAdmin);
 
 // Auth routes (protegidas)

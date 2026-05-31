@@ -14,7 +14,9 @@
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^3.1.0",
     "node-fetch": "^3.3.2",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
