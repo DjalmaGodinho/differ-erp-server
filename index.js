@@ -82,6 +82,7 @@ app.get('/api/health', authController.health);
 // Endpoint de teste de conexão com banco
 app.get('/api/test-db', async (req, res) => {
   try {
+    console.log('Testando conexão com DATABASE_URL:', process.env.DATABASE_URL ? 'Configurado' : 'Não configurado');
     const { query } = await import('./lib/config/database.js');
     const result = await query('SELECT NOW() as server_time, current_database() as database');
     const userResult = await query('SELECT COUNT(*) as total FROM user_profiles WHERE ativo = true');
@@ -93,14 +94,17 @@ app.get('/api/test-db', async (req, res) => {
         server_time: result.rows[0].server_time,
         database: result.rows[0].database,
         usuarios_ativos: parseInt(userResult.rows[0].total),
-        database_url_configured: !!process.env.DATABASE_URL
+        database_url_configured: !!process.env.DATABASE_URL,
+        ssl_mode: process.env.DATABASE_URL?.includes('sslmode=require') ? 'require' : 'none'
       }
     });
   } catch (error) {
+    console.error('Erro na conexão:', error);
     res.status(500).json({
       success: false,
       message: 'Erro na conexão com banco',
       error: error.message,
+      stack: error.stack,
       database_url_configured: !!process.env.DATABASE_URL
     });
   }
