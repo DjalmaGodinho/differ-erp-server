@@ -20,6 +20,17 @@ import {
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// CORS - must be before all routes
+const corsOptions = {
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+app.use(express.json());
+
 // Swagger config
 const swaggerOptions = {
   definition: {
@@ -63,8 +74,6 @@ app.get('/api/swagger.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
-app.use(cors());
-app.use(express.json());
 
 const ok = (data, message) => ({ success: true, data, message });
 
