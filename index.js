@@ -158,6 +158,29 @@ app.post('/api/auth/login', authController.login);
  */
 app.post('/api/auth/setup-admin', authController.setupAdmin);
 
+app.post('/api/auth/refresh', async (req, res) => {
+  const { refresh_token } = req.body;
+  if (!refresh_token) {
+    return res.status(400).json({ success: false, message: 'refresh_token obrigatório' });
+  }
+  try {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const anonKey = process.env.SUPABASE_ANON_KEY;
+    const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': anonKey },
+      body: JSON.stringify({ refresh_token })
+    });
+    if (!response.ok) {
+      return res.status(401).json({ success: false, message: 'Refresh token inválido ou expirado' });
+    }
+    const data = await response.json();
+    res.json(ok({ access_token: data.access_token, refresh_token: data.refresh_token }, 'Token renovado'));
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 // Auth routes (protegidas)
 app.get('/api/auth/me', authenticate, authController.me);
 app.get('/api/auth/usuarios', authenticate, authorize(['admin']), authController.listarUsuarios);
