@@ -82,40 +82,19 @@ app.get('/api/health', authController.health);
 // Endpoint de teste de conexão com banco
 app.get('/api/test-db', async (req, res) => {
   try {
-    console.log('Testando conexão com DATABASE_URL:', process.env.DATABASE_URL ? 'Configurado' : 'Não configurado');
-    
-    // Tentar usar Prisma primeiro
-    try {
-      const prisma = (await import('./lib/config/prisma.js')).default;
-      const userCount = await prisma.user_profiles.count({ where: { ativo: true } });
-      
-      return res.json({
-        success: true,
-        message: 'Conexão com banco OK (Prisma)',
-        data: {
-          usuarios_ativos: userCount,
-          database_url_configured: !!process.env.DATABASE_URL,
-          connection_type: 'prisma'
-        }
-      });
-    } catch (prismaError) {
-      console.log('Prisma falhou, tentando pg:', prismaError.message);
-    }
-    
-    // Fallback para pg
+    console.log('Testando conexão...');
     const { query } = await import('./lib/config/database.js');
     const result = await query('SELECT NOW() as server_time, current_database() as database');
     const userResult = await query('SELECT COUNT(*) as total FROM user_profiles WHERE ativo = true');
     
     res.json({
       success: true,
-      message: 'Conexão com banco OK (pg)',
+      message: 'Conexão com banco OK',
       data: {
         server_time: result.rows[0].server_time,
         database: result.rows[0].database,
         usuarios_ativos: parseInt(userResult.rows[0].total),
-        database_url_configured: !!process.env.DATABASE_URL,
-        connection_type: 'pg'
+        database_url_configured: !!process.env.DATABASE_URL
       }
     });
   } catch (error) {
@@ -124,7 +103,6 @@ app.get('/api/test-db', async (req, res) => {
       success: false,
       message: 'Erro na conexão com banco',
       error: error.message,
-      stack: error.stack,
       database_url_configured: !!process.env.DATABASE_URL
     });
   }
