@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
@@ -17,7 +18,7 @@ import {
 } from './lib/controllers/index.js';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // Swagger config
 const swaggerOptions = {
@@ -251,6 +252,69 @@ app.get('/api/financeiro/:id', authenticate, authorize(['admin']), financeiroCon
 app.post('/api/financeiro', authenticate, authorize(['admin']), financeiroController.criar);
 app.put('/api/financeiro/:id', authenticate, authorize(['admin']), financeiroController.atualizar);
 app.post('/api/financeiro/:id/baixar', authenticate, authorize(['admin']), financeiroController.baixar);
+
+// Dashboard
+app.get('/api/dashboard', authenticate, authorize(['admin', 'usuario']), async (req, res) => {
+  try {
+    const { query } = await import('./lib/config/database.js');
+
+    const [clientesAtivos, pedidosMes, finRes, estoqueTotal, producaoStats, ultimosPedidos, opsAndamento] = await Promise.all([
+      query(`SELECT COUNT(*) as total FROM clientes WHERE ativo = true`),
+      query(`SELECT COUNT(*) as total FROM pedidos WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())`),
+      query(`
+        SELECT 
+          COALESCE(SUM(CASE WHEN tipo_id = 2 AND status_id != 2 THEN valor ELSE 0 END), 0) as faturamento_pendente,
+          COALESCE(SUM(CASE WHEN tipo_id = 2 AND status_id = 2 AND DATE_TRUNC('month', data_pagamento) = DATE_TRUNC('month', NOW()) THEN valor_pago ELSE 0 END), 0) as faturamento_mes
+        FROM contas_financeiro
+      `),
+      query(`SELECT COUNT(*) as total FROM materiais WHERE ativo = true`),
+      query(`
+        SELECT 
+          COUNT(*) FILTER (WHERE so.nome = 'Planejada') as planejadas,
+          COUNT(*) FILTER (WHERE so.nome = 'Em Andamento') as em_andamento,
+          COUNT(*) FILTER (WHERE so.nome = 'Concluída') as concluidas
+        FROM ordens_producao op
+        LEFT JOIN status_op so ON op.status_id = so.id
+      `),
+      query(`
+        SELECT p.numero, c.nome as cliente_nome, p.valor_total, sp.nome as status_nome
+        FROM pedidos p
+        LEFT JOIN clientes c ON p.cliente_id = c.id
+        LEFT JOIN status_pedido sp ON p.status_id = sp.id
+        ORDER BY p.created_at DESC LIMIT 5
+      `),
+      query(`
+        SELECT op.codigo as ordem, op.produto_descricao as produto, op.quantidade,
+               m.nome as maquina, so.nome as status_nome
+        FROM ordens_producao op
+        LEFT JOIN maquinas m ON op.maquina_id = m.id
+        LEFT JOIN status_op so ON op.status_id = so.id
+        WHERE so.nome = 'Em Andamento'
+        ORDER BY op.created_at DESC LIMIT 5
+      `)
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        clientesAtivos: parseInt(clientesAtivos.rows[0].total),
+        pedidosMes: parseInt(pedidosMes.rows[0].total),
+        faturamentoMes: parseFloat(finRes.rows[0].faturamento_mes || 0),
+        faturamentoPendente: parseFloat(finRes.rows[0].faturamento_pendente || 0),
+        totalEstoque: parseInt(estoqueTotal.rows[0].total),
+        producao: {
+          planejadas: parseInt(producaoStats.rows[0].planejadas || 0),
+          emAndamento: parseInt(producaoStats.rows[0].em_andamento || 0),
+          concluidas: parseInt(producaoStats.rows[0].concluidas || 0),
+        },
+        ultimosPedidos: ultimosPedidos.rows,
+        opsEmAndamento: opsAndamento.rows,
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
 
 // Domínio
 app.get('/api/dominio/:tabela', authenticate, authorize(['admin']), dominioController.listar);
