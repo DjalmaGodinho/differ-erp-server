@@ -243,9 +243,12 @@ app.post('/api/auth/refresh', async (req, res) => {
   if (!refresh_token) {
     return res.status(400).json({ success: false, message: 'refresh_token obrigatório' });
   }
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !anonKey) {
+    return res.status(503).json({ success: false, message: 'Serviço de autenticação não configurado' });
+  }
   try {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const anonKey = process.env.SUPABASE_ANON_KEY;
     const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': anonKey },
@@ -361,17 +364,21 @@ app.get('/api/dashboard', authenticate, authorize(['admin', 'usuario']), async (
   try {
     const { query } = await import('./lib/config/database.js');
 
+    const safeQuery = async (sql, params = []) => {
+      try { return await query(sql, params); } catch { return { rows: [{}] }; }
+    };
+
     const [clientesAtivos, pedidosMes, finRes, estoqueTotal, producaoStats, ultimosPedidos, opsAndamento] = await Promise.all([
       query(`SELECT COUNT(*) as total FROM clientes WHERE ativo = true`),
       query(`SELECT COUNT(*) as total FROM pedidos WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())`),
-      query(`
+      safeQuery(`
         SELECT 
           COALESCE(SUM(CASE WHEN tipo_id = 2 AND status_id != 2 THEN valor ELSE 0 END), 0) as faturamento_pendente,
           COALESCE(SUM(CASE WHEN tipo_id = 2 AND status_id = 2 AND DATE_TRUNC('month', data_pagamento) = DATE_TRUNC('month', NOW()) THEN valor_pago ELSE 0 END), 0) as faturamento_mes
         FROM contas_financeiro
       `),
       query(`SELECT COUNT(*) as total FROM materiais WHERE ativo = true`),
-      query(`
+      safeQuery(`
         SELECT 
           COUNT(*) FILTER (WHERE so.nome = 'Planejada') as planejadas,
           COUNT(*) FILTER (WHERE so.nome = 'Em Andamento') as em_andamento,
@@ -386,7 +393,7 @@ app.get('/api/dashboard', authenticate, authorize(['admin', 'usuario']), async (
         LEFT JOIN status_pedido sp ON p.status_id = sp.id
         ORDER BY p.created_at DESC LIMIT 5
       `),
-      query(`
+      safeQuery(`
         SELECT op.codigo as ordem, op.produto_descricao as produto, op.quantidade,
                m.nome as maquina, so.nome as status_nome
         FROM ordens_producao op
