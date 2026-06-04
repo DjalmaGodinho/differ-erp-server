@@ -14,7 +14,10 @@ import {
   pedidoController,
   producaoController,
   financeiroController,
-  dominioController
+  dominioController,
+  formaPagamentoController,
+  condicaoPagamentoController,
+  contaReceberController
 } from './lib/controllers/index.js';
 
 const app = express();
@@ -243,6 +246,30 @@ app.post('/api/pedidos', authenticate, authorize(['admin']), pedidoController.cr
 app.put('/api/pedidos/:id', authenticate, authorize(['admin']), pedidoController.atualizar);
 app.patch('/api/pedidos/:id/status', authenticate, authorize(['admin']), pedidoController.atualizarStatus);
 app.delete('/api/pedidos/:id', authenticate, authorize(['admin']), pedidoController.cancelar);
+app.post('/api/pedidos/:id/efetivar', authenticate, authorize(['admin']), pedidoController.efetivar);
+
+// Formas de Pagamento
+app.get('/api/formas-pagamento', authenticate, authorize(['admin']), formaPagamentoController.listar);
+app.get('/api/formas-pagamento/:id', authenticate, authorize(['admin']), formaPagamentoController.obter);
+app.post('/api/formas-pagamento', authenticate, authorize(['admin']), formaPagamentoController.criar);
+app.put('/api/formas-pagamento/:id', authenticate, authorize(['admin']), formaPagamentoController.atualizar);
+app.delete('/api/formas-pagamento/:id', authenticate, authorize(['admin']), formaPagamentoController.excluir);
+
+// Condições de Pagamento
+app.get('/api/condicoes-pagamento', authenticate, authorize(['admin']), condicaoPagamentoController.listar);
+app.get('/api/condicoes-pagamento/:id', authenticate, authorize(['admin']), condicaoPagamentoController.obter);
+app.post('/api/condicoes-pagamento', authenticate, authorize(['admin']), condicaoPagamentoController.criar);
+app.put('/api/condicoes-pagamento/:id', authenticate, authorize(['admin']), condicaoPagamentoController.atualizar);
+app.delete('/api/condicoes-pagamento/:id', authenticate, authorize(['admin']), condicaoPagamentoController.excluir);
+
+// Contas a Receber
+app.get('/api/contas-receber', authenticate, authorize(['admin']), contaReceberController.listar);
+app.get('/api/contas-receber/:id', authenticate, authorize(['admin']), contaReceberController.obter);
+app.post('/api/contas-receber', authenticate, authorize(['admin']), contaReceberController.criar);
+app.put('/api/contas-receber/:id', authenticate, authorize(['admin']), contaReceberController.atualizar);
+app.delete('/api/contas-receber/:id', authenticate, authorize(['admin']), contaReceberController.excluir);
+app.post('/api/contas-receber/gerar/:pedidoId', authenticate, authorize(['admin']), contaReceberController.gerarDoPedido);
+app.get('/api/contas-receber/pedido/:pedidoId', authenticate, authorize(['admin']), contaReceberController.listarPorPedido);
 
 // Produção (admin e usuario)
 app.get('/api/producao', authenticate, authorize(['admin', 'usuario']), producaoController.listar);
