@@ -4,6 +4,7 @@ import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 import { authenticate, authorize, optionalAuth } from './lib/middleware/auth.js';
+import cryptoService from './lib/services/cryptoService.js';
 import {
   authController,
   clienteController,
@@ -108,6 +109,21 @@ const ok = (data, message) => ({ success: true, data, message });
  */
 app.get('/api/health', authController.health);
 
+/**
+ * @openapi
+ * /api/auth/public-key:
+ *   get:
+ *     summary: Obter chave pública RSA para criptografia do login
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Chave pública RSA retornada
+ */
+app.get('/api/auth/public-key', (req, res) => {
+  const publicKey = cryptoService.getPublicKey();
+  res.json({ success: true, publicKey });
+});
+
 // Endpoint de teste de conexão com banco
 app.get('/api/test-db', async (req, res) => {
   try {
@@ -171,7 +187,31 @@ app.get('/api/test-db', async (req, res) => {
  *       401:
  *         description: Credenciais inválidas
  */
-app.post('/api/auth/login', authController.login);
+// Middleware para descriptografar senha criptografada
+const decryptLoginPassword = (req, res, next) => {
+  try {
+    const { email, password, senha, encrypted } = req.body;
+    
+    // Se vier com flag encrypted, descriptografa a senha
+    if (encrypted) {
+      const passwordToDecrypt = password || senha;
+      if (passwordToDecrypt) {
+        const decrypted = cryptoService.decrypt(passwordToDecrypt);
+        // Atualiza ambos os campos para compatibilidade
+        req.body.password = decrypted;
+        req.body.senha = decrypted;
+        delete req.body.encrypted;
+      }
+    }
+    
+    next();
+  } catch (error) {
+    console.error('Erro ao descriptografar senha:', error.message);
+    res.status(400).json({ success: false, message: 'Erro na criptografia da senha' });
+  }
+};
+
+app.post('/api/auth/login', decryptLoginPassword, authController.login);
 
 /**
  * @openapi
@@ -196,7 +236,7 @@ app.post('/api/auth/login', authController.login);
  *       200:
  *         description: Admin criado
  */
-app.post('/api/auth/setup-admin', authController.setupAdmin);
+app.post('/api/auth/setup-admin', decryptLoginPassword, authController.setupAdmin);
 
 app.post('/api/auth/refresh', async (req, res) => {
   const { refresh_token } = req.body;
@@ -224,7 +264,7 @@ app.post('/api/auth/refresh', async (req, res) => {
 // Auth routes (protegidas)
 app.get('/api/auth/me', authenticate, authController.me);
 app.get('/api/auth/usuarios', authenticate, authorize(['admin']), authController.listarUsuarios);
-app.post('/api/auth/usuarios', authenticate, authorize(['admin']), authController.criarUsuario);
+app.post('/api/auth/usuarios', authenticate, authorize(['admin']), decryptLoginPassword, authController.criarUsuario);
 app.put('/api/auth/usuarios/:id/role', authenticate, authorize(['admin']), authController.atualizarRole);
 app.delete('/api/auth/usuarios/:id', authenticate, authorize(['admin']), authController.removerUsuario);
 
