@@ -59,8 +59,8 @@ ALTER TABLE fornecedores ADD COLUMN IF NOT EXISTS condicao_pagamento_id INTEGER 
 -- Criar tabela de contas a receber
 CREATE TABLE IF NOT EXISTS contas_receber (
     id SERIAL PRIMARY KEY,
-    pedido_id INTEGER REFERENCES pedidos(id) ON DELETE SET NULL,
-    cliente_id INTEGER NOT NULL REFERENCES clientes(id),
+    pedido_id UUID REFERENCES pedidos(id) ON DELETE SET NULL,
+    cliente_id UUID NOT NULL REFERENCES clientes(id),
     numero_documento VARCHAR(20),
     data_emissao DATE NOT NULL DEFAULT CURRENT_DATE,
     data_vencimento DATE NOT NULL,
