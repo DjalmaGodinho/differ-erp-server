@@ -113,8 +113,18 @@ app.get('/api/test-db', async (req, res) => {
   try {
     console.log('Testando conexão...');
     const { query } = await import('./lib/config/database.js');
+    
+    // Teste 1: conexão básica
     const result = await query('SELECT NOW() as server_time, current_database() as database');
-    const userResult = await query('SELECT COUNT(*) as total FROM user_profiles WHERE ativo = true');
+    
+    // Teste 2: verificar se tabela user_profiles existe
+    let userCount = 0;
+    try {
+      const userResult = await query('SELECT COUNT(*) as total FROM user_profiles WHERE ativo = true');
+      userCount = parseInt(userResult.rows[0].total);
+    } catch (tableError) {
+      console.log('Tabela user_profiles pode não existir:', tableError.message);
+    }
     
     res.json({
       success: true,
@@ -122,7 +132,7 @@ app.get('/api/test-db', async (req, res) => {
       data: {
         server_time: result.rows[0].server_time,
         database: result.rows[0].database,
-        usuarios_ativos: parseInt(userResult.rows[0].total),
+        usuarios_ativos: userCount,
         database_url_configured: !!process.env.DATABASE_URL
       }
     });
@@ -132,6 +142,7 @@ app.get('/api/test-db', async (req, res) => {
       success: false,
       message: 'Erro na conexão com banco',
       error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       database_url_configured: !!process.env.DATABASE_URL
     });
   }
