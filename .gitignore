@@ -9,3 +9,10 @@ dist/
 .vercel
 
 /lib/generated/prisma
+
+# Security: Configuration files with sensitive data
+/lib/config/smtp.json
+/lib/config/encryption.key
+*.key
+*.pem
+secrets/

@@ -50,48 +50,49 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(express.json());
 
-// Swagger config
-const swaggerOptions = {
-  definition: {
-    openapi: '3.0.0',
-    info: {
-      title: 'Differ ERP API',
-      version: '1.0.0',
-      description: 'API Node.js do Differ ERP',
-    },
-    servers: [
-      { url: '/api', description: 'API base' }
-    ],
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
+// Swagger config - só em produção
+const isProd = process.env.NODE_ENV === 'production';
+if (isProd) {
+  const swaggerOptions = {
+    definition: {
+      openapi: '3.0.0',
+      info: {
+        title: 'Differ ERP API',
+        version: '1.0.0',
+        description: 'API Node.js do Differ ERP',
+      },
+      servers: [
+        { url: '/api', description: 'API base' }
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+          },
         },
       },
     },
-  },
-  apis: ['./index.js', './lib/controllers/*.js'],
-};
+    apis: ['./index.js', './lib/controllers/*.js'],
+  };
 
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
+  const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Swagger UI - configuração para Vercel (serverless)
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  explorer: true,
-  customCss: '.swagger-ui .topbar { display: none }',
-  swaggerOptions: {
-    url: '/api/swagger.json',
-    persistAuthorization: true
-  }
-}));
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }',
+    swaggerOptions: {
+      url: '/api/swagger.json',
+      persistAuthorization: true
+    }
+  }));
 
-// Endpoint para swagger.json
-app.get('/api/swagger.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(swaggerSpec);
-});
+  app.get('/api/swagger.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
+}
 
 
 const ok = (data, message) => ({ success: true, data, message });
@@ -277,6 +278,7 @@ app.put('/api/pedidos/:id', authenticate, authorize(['admin']), pedidoController
 app.patch('/api/pedidos/:id/status', authenticate, authorize(['admin']), pedidoController.atualizarStatus);
 app.delete('/api/pedidos/:id', authenticate, authorize(['admin']), pedidoController.cancelar);
 app.post('/api/pedidos/:id/efetivar', authenticate, authorize(['admin']), pedidoController.efetivar);
+app.post('/api/pedidos/:id/enviar-email', authenticate, authorize(['admin']), pedidoController.enviarEmail);
 
 // Formas de Pagamento
 app.get('/api/formas-pagamento', authenticate, authorize(['admin']), formaPagamentoController.listar);
